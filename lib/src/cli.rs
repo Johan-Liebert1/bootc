@@ -1057,6 +1057,7 @@ impl Opt {
         let mut args = args.into_iter();
         let first = if let Some(first) = args.next() {
             let first: OsString = first.into();
+            tracing::debug!("first={first:?}");
             let argv0 = callname_from_argv0(&first);
             tracing::debug!("argv0={argv0:?}");
             let mapped = match argv0 {

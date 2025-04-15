@@ -179,6 +179,7 @@ pub fn partitions_of(dev: &Utf8Path) -> Result<PartitionTable> {
     Ok(o.partitiontable)
 }
 
+#[derive(Debug)]
 pub struct LoopbackDevice {
     pub dev: Option<Utf8PathBuf>,
 }
