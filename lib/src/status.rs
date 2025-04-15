@@ -201,6 +201,8 @@ pub(crate) fn get_status(
     sysroot: &Storage,
     booted_deployment: Option<&ostree::Deployment>,
 ) -> Result<(Deployments, Host)> {
+    tracing::debug!("booted_deployment: {booted_deployment:#?}");
+
     let stateroot = booted_deployment.as_ref().map(|d| d.osname());
     let (mut related_deployments, other_deployments) = sysroot
         .deployments()

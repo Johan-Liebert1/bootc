@@ -8,6 +8,8 @@ pub fn initialize_tracing() {
     let format = tracing_subscriber::fmt::format()
         .without_time()
         .with_target(false)
+        .with_file(true)
+        .with_line_number(true)
         .compact();
     // Log to stderr by default
     tracing_subscriber::fmt()

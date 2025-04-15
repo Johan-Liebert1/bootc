@@ -356,6 +356,7 @@ pub(crate) struct SourceInfo {
 }
 
 // Shared read-only global state
+#[derive(Debug)]
 pub(crate) struct State {
     pub(crate) source: SourceInfo,
     /// Force SELinux off in target system
@@ -615,6 +616,26 @@ pub(crate) fn print_configuration() -> Result<()> {
     install_config.filter_to_external();
     let stdout = std::io::stdout().lock();
     serde_json::to_writer(stdout, &install_config).map_err(Into::into)
+}
+
+#[allow(dead_code)]
+#[context("Creating composefs deployment")]
+async fn initialize_composefs_root(state: &State, root_setup: &RootSetup) -> Result<()> {
+    let rootfs_dir = &root_setup.physical_root;
+    rootfs_dir.create_dir_all("sysroot/composefs")?;
+
+    // self.openat(
+    //     rootfs_dir.into,
+    //     OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
+    // );
+
+    composefs::oci::pull(
+        &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs")
+            .unwrap(),
+        &format!("containers-storage:{}", &state.target_imgref.imgref.name),
+        None,
+    )
+    .await
 }
 
 #[context("Creating ostree deployment")]
@@ -939,6 +960,7 @@ pub(crate) fn exec_in_host_mountns(args: &[std::ffi::OsString]) -> Result<()> {
     Err(Command::new(cmd).args(args).exec()).context("exec")?
 }
 
+#[derive(Debug)]
 pub(crate) struct RootSetup {
     #[cfg(feature = "install-to-disk")]
     luks_device: Option<String>,
@@ -1227,6 +1249,10 @@ async fn prepare_install(
     let rootfs = cap_std::fs::Dir::open_ambient_dir("/", cap_std::ambient_authority())
         .context("Opening /")?;
 
+    tracing::warn!("fd is {:?}", rootfs);
+
+    // std::thread::sleep(Duration::from_secs(1000));
+
     let host_is_container = crate::containerenv::is_container(&rootfs);
     let external_source = source_opts.source_imgref.is_some();
     let source = match source_opts.source_imgref {
@@ -1484,9 +1510,20 @@ async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Re
         .get_boot_uuid()?
         .or(rootfs.rootfs_uuid.as_deref())
         .ok_or_else(|| anyhow!("No uuid for boot/root"))?;
+
     tracing::debug!("boot uuid={boot_uuid}");
 
+    tracing::warn!("rootfs: {rootfs:#?}");
+    tracing::warn!("state: {state:#?}");
+
+    // wait_on_n();
+
     let bound_images = BoundImages::from_state(state).await?;
+
+    if true {
+        // Load a fd for the mounted target physical root
+        return initialize_composefs_root(state, rootfs).await;
+    }
 
     // Initialize the ostree sysroot (repo, stateroot, etc.)
     {
