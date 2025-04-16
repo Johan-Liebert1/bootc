@@ -1,5 +1,7 @@
 //! The main entrypoint for bootc, which just performs global initialization, and then
 //! calls out into the library.
+use std::{thread, time::Duration};
+
 use anyhow::Result;
 
 /// The code called after we've done process global init and created
@@ -37,6 +39,16 @@ fn main() {
     // This code just captures any errors.
     if let Err(e) = run() {
         tracing::error!("{:#}", e);
+        e.chain()
+            .skip(1)
+            .enumerate()
+            .for_each(|(idx, error)| match error.source() {
+                Some(e) => eprintln!("{idx}: {e:#?}",),
+                None => {}
+            });
+
+        thread::sleep(Duration::from_secs(10_000));
+
         std::process::exit(1);
     }
 }

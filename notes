@@ -1,0 +1,33 @@
+
+lib/src/install.rs:1464: rootfs: 
+RootSetup { luks_device: None, device_info: PartitionTable { label: Gpt, id: "5AA35F46-0788-49B2-AEAF-718158095F6A", device: "/dev/vdb", partitio
+ns: [Partition { node: "/dev/vdb1", start: 2048, size: 2048, parttype: "21686148-6449-6E6F-744E-656564454649", uuid: Some("36214CE7-6597-462B-916D-DFBBE0B78965"), name: Some("BIOS-BOOT
+") }, Partition { node: "/dev/vdb2", start: 4096, size: 1048576, parttype: "C12A7328-F81F-11D2-BA4B-00A0C93EC93B", uuid: Some("B31134D6-03CC-4879-B373-CE821FABF037"), name: Some("EFI-S
+YSTEM") }, Partition { node: "/dev/vdb3", start: 1052672, size: 61859840, parttype: "0FC63DAF-8483-4772-8E79-3D69D8477DE4", uuid: Some("6EA26C72-0638-4FFC-B826-A8BA9F6C7CEA"), name: So
+me("root") }] }, physical_root_path: "/run/bootc/mounts/rootfs", physical_root: Dir { fd: 13 }, rootfs_uuid: Some("816b001e-a9bc-4118-bf98-f3d2c1c81912"), skip_finalize: false, boot: N
+one, kargs: ["root=UUID=816b001e-a9bc-4118-bf98-f3d2c1c81912", "rw"] }
+
+lib/src/install.rs:1465: state: 
+State { source: SourceInfo { imageref: ImageReference { transport: ContainerStorage,
+ name: "quay.io/pragyanpoudyal/bootc-update:latest" },
+ digest:
+ Some("sha256:9b612d55edbd3ba8deca5634f445ba74155818c4207b2aa8d14f2ed6745118ca"),
+ selinux: true,
+ in_host_mountns: true },
+ selinux_state: Enabled(None),
+ config_opts: InstallConfigOpts {
+ disable_selinux: false,
+ karg: None,
+ root_ssh_authorized_keys: None,
+ generic_image: false,
+ bound_images: Stored,
+ stateroot: None },
+ target_imgref: OstreeImageReference { sigverify: ContainerPolicyAllowInsecure,
+ imgref: ImageReference { transport: Registry,
+ name: "quay.io/pragyanpoudyal/bootc-update:latest" } },
+ prepareroot_config: {"composefs.enabled": "true"},
+ install_config: None,
+ root_ssh_authorized_keys: None,
+ host_is_container: true,
+ container_root: Dir { fd: 10 },
+ tempdir: Some(Dir { fd: 11 }) }

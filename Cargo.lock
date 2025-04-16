@@ -502,12 +502,11 @@ dependencies = [
 [[package]]
 name = "composefs"
 version = "0.2.0"
-source = "git+https://github.com/containers/composefs-rs?rev=821eeae93e48f1ee381c49b8cd4d22fda92d27a2#821eeae93e48f1ee381c49b8cd4d22fda92d27a2"
 dependencies = [
  "anyhow",
  "async-compression",
  "clap",
- "containers-image-proxy",
+ "containers-image-proxy 0.7.0",
  "env_logger 0.11.6",
  "hex",
  "indicatif",
@@ -538,6 +537,23 @@ dependencies = [
  "libc",
  "unicode-width 0.1.14",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "containers-image-proxy"
+version = "0.7.0"
+dependencies = [
+ "cap-std-ext",
+ "fn-error-context",
+ "futures-util",
+ "oci-spec",
+ "rustix 0.38.44",
+ "semver",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -1687,7 +1703,7 @@ dependencies = [
  "clap_mangen",
  "comfy-table",
  "composefs",
- "containers-image-proxy",
+ "containers-image-proxy 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "flate2",
  "fn-error-context",
  "futures-util",

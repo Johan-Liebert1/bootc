@@ -17,10 +17,11 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::os::fd::{AsFd, AsRawFd};
 use std::os::unix::process::CommandExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::thread;
 use std::time::Duration;
 
 use anyhow::{anyhow, ensure, Context, Result};
@@ -38,6 +39,7 @@ use chrono::prelude::*;
 use clap::ValueEnum;
 use fn_error_context::context;
 use ostree::gio;
+use ostree_ext::composefs::fsverity::Sha256HashValue;
 use ostree_ext::oci_spec;
 use ostree_ext::ostree;
 use ostree_ext::ostree_prepareroot::{ComposefsState, Tristate};
@@ -61,6 +63,8 @@ use crate::spec::ImageReference;
 use crate::store::Storage;
 use crate::task::Task;
 use crate::utils::sigpolicy_from_opt;
+
+use ostree_ext::composefs;
 
 /// The toplevel boot directory
 const BOOT: &str = "boot";
@@ -620,9 +624,17 @@ pub(crate) fn print_configuration() -> Result<()> {
 
 #[allow(dead_code)]
 #[context("Creating composefs deployment")]
-async fn initialize_composefs_root(state: &State, root_setup: &RootSetup) -> Result<()> {
+async fn initialize_composefs_root(
+    state: &State,
+    root_setup: &RootSetup,
+) -> Result<(Sha256HashValue, Sha256HashValue)> {
     let rootfs_dir = &root_setup.physical_root;
-    rootfs_dir.create_dir_all("sysroot/composefs")?;
+
+    rootfs_dir
+        .create_dir_all("sysroot/composefs")
+        .context("Create dir sysroot/composefs")?;
+
+    // std::thread::sleep(Duration::from_secs(1000));
 
     // self.openat(
     //     rootfs_dir.into,
@@ -631,8 +643,15 @@ async fn initialize_composefs_root(state: &State, root_setup: &RootSetup) -> Res
 
     composefs::oci::pull(
         &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs")
-            .unwrap(),
-        &format!("containers-storage:{}", &state.target_imgref.imgref.name),
+            .expect("failed to open_path"),
+        // &format!(
+        //     "containers-storage:{}",
+        //     "localhost/bootcstuff" /* &state.target_imgref.imgref.name */
+        // ),
+        &format!(
+            "docker://{}",
+            &state.target_imgref.imgref.name
+        ),
         None,
     )
     .await
@@ -1266,6 +1285,11 @@ async fn prepare_install(
             // to do a self-install (e.g. not bootc-image-builder or equivalent).
             require_host_userns()?;
             let container_info = crate::containerenv::get_container_execution_info(&rootfs)?;
+
+            tracing::warn!("container_info = {container_info:#?}");
+
+            // thread::sleep(Duration::from_secs(10000));
+
             // This command currently *must* be run inside a privileged container.
             match container_info.rootless.as_deref() {
                 Some("1") => anyhow::bail!(
@@ -1392,6 +1416,81 @@ async fn prepare_install(
     Ok(state)
 }
 
+async fn install_with_sysroot_composefs(
+    state: &State,
+    rootfs: &RootSetup,
+    boot_uuid: &str,
+    image_id: Sha256HashValue,
+    verity: Sha256HashValue,
+    // sysroot: &Storage,
+    // bound_images: BoundImages,
+    // has_ostree: bool,
+    // imgstore: &crate::imgstorage::Storage,
+) -> Result<()> {
+    // And actually set up the container in that root, returning a deployment and
+    // the aleph state (see below).
+    // call create-imaget form composefs
+    // let (_deployment, aleph) = install_container(state, rootfs, &sysroot, has_ostree).await?;
+
+    // Write the aleph data that captures the system state at the time of provisioning for aid in future debugging.
+    // rootfs
+    //     .physical_root
+    //     .atomic_replace_with(BOOTC_ALEPH_PATH, |f| {
+    //         serde_json::to_writer(f, &aleph)?;
+    //         anyhow::Ok(())
+    //     })
+    //     .context("Writing aleph version")?;
+
+    let rootfs_dir = &rootfs.physical_root;
+    let repo =
+        &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs").unwrap();
+
+    let erofs_verity =
+        composefs::oci::image::create_image(repo, &hex::encode(image_id), None, Some(&verity))?;
+
+    tracing::error!("erofs_verity: {erofs_verity:?}");
+
+    if cfg!(target_arch = "s390x") {
+        // TODO: Integrate s390x support into install_via_bootupd
+        crate::bootloader::install_via_zipl(&rootfs.device_info, boot_uuid)?;
+    } else {
+        crate::bootloader::install_via_bootupd(
+            &rootfs.device_info,
+            &rootfs.physical_root_path,
+            &state.config_opts,
+        )?;
+    }
+    tracing::debug!("Installed bootloader");
+    tracing::debug!("Perfoming post-deployment operations");
+
+    let output = rootfs_dir.open_dir("boot").unwrap(); //.unwrap_or(PathBuf::from("/boot"));
+    tracing::error!("output = {output:?}");
+    composefs::oci::prepare_boot(
+        repo,
+        &hex::encode(image_id),
+        Some(&erofs_verity),
+        &PathBuf::from("/run/bootc/mounts/rootfs/boot"),
+    )?;
+
+    // match bound_images {
+    //     BoundImages::Skip => {}
+    //     BoundImages::Resolved(resolved_bound_images) => {
+    //         // Now copy each bound image from the host's container storage into the target.
+    //         for image in resolved_bound_images {
+    //             let image = image.image.as_str();
+    //             imgstore.pull_from_host_storage(image).await?;
+    //         }
+    //     }
+    //     BoundImages::Unresolved(bound_images) => {
+    //         crate::boundimage::pull_images_impl(imgstore, bound_images)
+    //             .await
+    //             .context("pulling bound images")?;
+    //     }
+    // }
+
+    Ok(())
+}
+
 /// Given a baseline root filesystem with an ostree sysroot initialized:
 /// - install the container to that root
 /// - install the bootloader
@@ -1407,6 +1506,7 @@ async fn install_with_sysroot(
 ) -> Result<()> {
     // And actually set up the container in that root, returning a deployment and
     // the aleph state (see below).
+    // call create-imaget form composefs
     let (_deployment, aleph) = install_container(state, rootfs, &sysroot, has_ostree).await?;
     // Write the aleph data that captures the system state at the time of provisioning for aid in future debugging.
     rootfs
@@ -1522,25 +1622,32 @@ async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Re
 
     if true {
         // Load a fd for the mounted target physical root
-        return initialize_composefs_root(state, rootfs).await;
-    }
+        let (id, verity) = initialize_composefs_root(state, rootfs).await?;
+        tracing::error!(
+            "id = {id}, verity = {verity}",
+            id = hex::encode(id),
+            verity = hex::encode(verity)
+        );
+        // thread::sleep(Duration::from_secs(10000));
+        install_with_sysroot_composefs(state, rootfs, &boot_uuid, id, verity).await?;
+    } else {
+        // Initialize the ostree sysroot (repo, stateroot, etc.)
+        {
+            let (sysroot, has_ostree, imgstore) = initialize_ostree_root(state, rootfs).await?;
 
-    // Initialize the ostree sysroot (repo, stateroot, etc.)
-    {
-        let (sysroot, has_ostree, imgstore) = initialize_ostree_root(state, rootfs).await?;
-
-        install_with_sysroot(
-            state,
-            rootfs,
-            &sysroot,
-            &boot_uuid,
-            bound_images,
-            has_ostree,
-            &imgstore,
-        )
-        .await?;
-        // We must drop the sysroot here in order to close any open file
-        // descriptors.
+            install_with_sysroot(
+                state,
+                rootfs,
+                &sysroot,
+                &boot_uuid,
+                bound_images,
+                has_ostree,
+                &imgstore,
+            )
+            .await?;
+            // We must drop the sysroot here in order to close any open file
+            // descriptors.
+        }
     }
 
     // Run this on every install as the penultimate step
