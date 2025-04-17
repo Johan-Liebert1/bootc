@@ -641,17 +641,22 @@ async fn initialize_composefs_root(
     //     OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
     // );
 
+    let storage = match std::env::var("C_STORAGE") {
+        Ok(val) => val,
+        Err(..) => "docker://".into(),
+    };
+
+    let image_name = match std::env::var("C_IMAGE") {
+        Ok(val) => val,
+        Err(..) => state.target_imgref.imgref.name.clone(),
+    };
+
+    tracing::error!("storage = {storage}, image_name = {image_name}");
+
     composefs::oci::pull(
         &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs")
             .expect("failed to open_path"),
-        // &format!(
-        //     "containers-storage:{}",
-        //     "localhost/bootcstuff" /* &state.target_imgref.imgref.name */
-        // ),
-        &format!(
-            "docker://{}",
-            &state.target_imgref.imgref.name
-        ),
+        &format!("{storage}:{image_name}"),
         None,
     )
     .await
