@@ -506,7 +506,7 @@ dependencies = [
  "anyhow",
  "async-compression",
  "clap",
- "containers-image-proxy 0.7.0",
+ "containers-image-proxy",
  "env_logger 0.11.6",
  "hex",
  "indicatif",
@@ -542,25 +542,6 @@ dependencies = [
 [[package]]
 name = "containers-image-proxy"
 version = "0.7.0"
-dependencies = [
- "cap-std-ext",
- "fn-error-context",
- "futures-util",
- "oci-spec",
- "rustix 0.38.44",
- "semver",
- "serde",
- "serde_json",
- "thiserror 1.0.69",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "containers-image-proxy"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1b4ec45d60513c498a40c69d89447d8bf91bbd17f71a32aa285b39e4dc03294"
 dependencies = [
  "cap-std-ext",
  "fn-error-context",
@@ -1703,7 +1684,7 @@ dependencies = [
  "clap_mangen",
  "comfy-table",
  "composefs",
- "containers-image-proxy 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "containers-image-proxy",
  "flate2",
  "fn-error-context",
  "futures-util",

@@ -1,5 +1,7 @@
 //! Helpers related to tracing, used by main entrypoints
 
+use tracing_subscriber::EnvFilter;
+
 /// Initialize tracing with the default configuration.
 pub fn initialize_tracing() {
     // Don't include timestamps and such because they're not really useful and
@@ -16,6 +18,6 @@ pub fn initialize_tracing() {
         .event_format(format)
         .with_writer(std::io::stderr)
         .with_max_level(tracing::Level::WARN)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(EnvFilter::new("bootc=trace"))
         .init();
 }

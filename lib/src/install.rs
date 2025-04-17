@@ -641,17 +641,22 @@ async fn initialize_composefs_root(
     //     OFlags::PATH | OFlags::DIRECTORY | OFlags::CLOEXEC,
     // );
 
+    let storage = match std::env::var("C_STORAGE") {
+        Ok(val) => val,
+        Err(..) => "docker://".into(),
+    };
+
+    let image_name = match std::env::var("C_IMAGE") {
+        Ok(val) => val,
+        Err(..) => state.target_imgref.imgref.name.clone(),
+    };
+
+    tracing::warn!("storage = {storage}, image_name = {image_name}");
+
     composefs::oci::pull(
         &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs")
             .expect("failed to open_path"),
-        // &format!(
-        //     "containers-storage:{}",
-        //     "localhost/bootcstuff" /* &state.target_imgref.imgref.name */
-        // ),
-        &format!(
-            "docker://{}",
-            &state.target_imgref.imgref.name
-        ),
+        &format!("{storage}:{image_name}"),
         None,
     )
     .await
@@ -1416,6 +1421,7 @@ async fn prepare_install(
     Ok(state)
 }
 
+#[context("install_with_sysroot_composefs")]
 async fn install_with_sysroot_composefs(
     state: &State,
     rootfs: &RootSetup,
@@ -1446,9 +1452,9 @@ async fn install_with_sysroot_composefs(
         &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs").unwrap();
 
     let erofs_verity =
-        composefs::oci::image::create_image(repo, &hex::encode(image_id), None, Some(&verity))?;
+        composefs::oci::image::create_image(repo, &hex::encode(image_id), None, None)?; // Some(&verity))?;
 
-    tracing::error!("erofs_verity: {erofs_verity:?}");
+    tracing::error!("erofs_verity: {:?}", hex::encode(erofs_verity));
 
     if cfg!(target_arch = "s390x") {
         // TODO: Integrate s390x support into install_via_bootupd
@@ -1468,7 +1474,7 @@ async fn install_with_sysroot_composefs(
     composefs::oci::prepare_boot(
         repo,
         &hex::encode(image_id),
-        Some(&erofs_verity),
+        None,
         &PathBuf::from("/run/bootc/mounts/rootfs/boot"),
     )?;
 
@@ -1587,6 +1593,8 @@ impl BoundImages {
 }
 
 async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Result<()> {
+    const COMPOSEFS: bool = false;
+
     if matches!(state.selinux_state, SELinuxFinalState::ForceTargetDisabled) {
         rootfs.kargs.push("selinux=0".to_string());
     }
@@ -1616,11 +1624,9 @@ async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Re
     tracing::warn!("rootfs: {rootfs:#?}");
     tracing::warn!("state: {state:#?}");
 
-    // wait_on_n();
-
     let bound_images = BoundImages::from_state(state).await?;
 
-    if true {
+    if COMPOSEFS {
         // Load a fd for the mounted target physical root
         let (id, verity) = initialize_composefs_root(state, rootfs).await?;
         tracing::error!(
@@ -1650,13 +1656,19 @@ async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Re
         }
     }
 
-    // Run this on every install as the penultimate step
-    install_finalize(&rootfs.physical_root_path).await?;
+    if !COMPOSEFS {
+        // Run this on every install as the penultimate step
+        install_finalize(&rootfs.physical_root_path).await?;
+    }
 
     // Finalize mounted filesystems
     if !rootfs.skip_finalize {
         let bootfs = rootfs.boot.as_ref().map(|_| ("boot", "boot"));
+
+        tracing::warn!("bootfs = {bootfs:?}");
+
         for (fsname, fs) in std::iter::once(("root", ".")).chain(bootfs) {
+            tracing::warn!("Doing something with fsname = {fsname}, fs = {fs}");
             finalize_filesystem(fsname, &rootfs.physical_root, fs)?;
         }
     }
