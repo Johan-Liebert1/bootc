@@ -43,7 +43,7 @@ lto = "yes"
 
 [workspace.dependencies]
 composefs = { git = "https://github.com/containers/composefs-rs", rev = "821eeae93e48f1ee381c49b8cd4d22fda92d27a2" }
-anyhow = "1.0.82"
+anyhow = "1.0.87"
 camino = "1.1.6"
 cap-std-ext = "4.0.3"
 chrono = { version = "0.4.38", default-features = false }

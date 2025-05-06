@@ -512,6 +512,7 @@ dependencies = [
  "indicatif",
  "log",
  "oci-spec",
+ "once_cell",
  "regex-automata 0.4.9",
  "rustix 1.0.3",
  "serde",
@@ -541,7 +542,7 @@ dependencies = [
 
 [[package]]
 name = "containers-image-proxy"
-version = "0.7.0"
+version = "0.7.1"
 dependencies = [
  "cap-std-ext",
  "fn-error-context",
@@ -1599,9 +1600,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.20.3"
+version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "945462a4b81e43c4e3ba96bd7b49d834c6f61198356aa858733bc4acf3cbe62e"
+checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
 
 [[package]]
 name = "openssh-keys"

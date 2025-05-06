@@ -47,8 +47,8 @@ fn main() {
                 None => {}
             });
 
-        thread::sleep(Duration::from_secs(10_000));
-
-        std::process::exit(1);
+        // std::process::exit(1);
     }
+
+    thread::sleep(Duration::from_secs(10_000));
 }

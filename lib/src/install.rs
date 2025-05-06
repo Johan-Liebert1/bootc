@@ -14,14 +14,14 @@ mod osbuild;
 pub(crate) mod osconfig;
 
 use std::collections::HashMap;
-use std::io::Write;
+use std::fs::create_dir_all;
+use std::io::{Read, Write};
 use std::os::fd::{AsFd, AsRawFd};
 use std::os::unix::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 
 use anyhow::{anyhow, ensure, Context, Result};
@@ -39,7 +39,8 @@ use chrono::prelude::*;
 use clap::ValueEnum;
 use fn_error_context::context;
 use ostree::gio;
-use ostree_ext::composefs::fsverity::Sha256HashValue;
+use ostree_ext::composefs::fsverity::{FsVerityHashValue, Sha256HashValue};
+use ostree_ext::composefs::util::Sha256Digest;
 use ostree_ext::oci_spec;
 use ostree_ext::ostree;
 use ostree_ext::ostree_prepareroot::{ComposefsState, Tristate};
@@ -622,17 +623,16 @@ pub(crate) fn print_configuration() -> Result<()> {
     serde_json::to_writer(stdout, &install_config).map_err(Into::into)
 }
 
-#[allow(dead_code)]
-#[context("Creating composefs deployment")]
+// #[context("Creating composefs deployment")]
 async fn initialize_composefs_root(
     state: &State,
     root_setup: &RootSetup,
-) -> Result<(Sha256HashValue, Sha256HashValue)> {
+) -> Result<(Sha256Digest, impl FsVerityHashValue)> {
     let rootfs_dir = &root_setup.physical_root;
 
     rootfs_dir
-        .create_dir_all("sysroot/composefs")
-        .context("Create dir sysroot/composefs")?;
+        .create_dir_all("composefs")
+        .context("Create dir composefs")?;
 
     // std::thread::sleep(Duration::from_secs(1000));
 
@@ -653,13 +653,11 @@ async fn initialize_composefs_root(
 
     tracing::warn!("storage = {storage}, image_name = {image_name}");
 
-    composefs::oci::pull(
-        &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs")
-            .expect("failed to open_path"),
-        &format!("{storage}:{image_name}"),
-        None,
-    )
-    .await
+    let repo: composefs::repository::Repository<Sha256HashValue> =
+        composefs::repository::Repository::open_path(rootfs_dir, "composefs")
+            .expect("failed to open_path");
+
+    composefs::oci::pull(&Arc::new(repo), &format!("{storage}:{image_name}"), None).await
 }
 
 #[context("Creating ostree deployment")]
@@ -1427,34 +1425,18 @@ async fn install_with_sysroot_composefs(
     rootfs: &RootSetup,
     boot_uuid: &str,
     image_id: Sha256HashValue,
-    verity: Sha256HashValue,
     // sysroot: &Storage,
     // bound_images: BoundImages,
     // has_ostree: bool,
     // imgstore: &crate::imgstorage::Storage,
 ) -> Result<()> {
-    // And actually set up the container in that root, returning a deployment and
-    // the aleph state (see below).
-    // call create-imaget form composefs
-    // let (_deployment, aleph) = install_container(state, rootfs, &sysroot, has_ostree).await?;
-
-    // Write the aleph data that captures the system state at the time of provisioning for aid in future debugging.
-    // rootfs
-    //     .physical_root
-    //     .atomic_replace_with(BOOTC_ALEPH_PATH, |f| {
-    //         serde_json::to_writer(f, &aleph)?;
-    //         anyhow::Ok(())
-    //     })
-    //     .context("Writing aleph version")?;
-
     let rootfs_dir = &rootfs.physical_root;
-    let repo =
-        &composefs::repository::Repository::open_path(rootfs_dir, "sysroot/composefs").unwrap();
+    let repo: &composefs::repository::Repository<Sha256HashValue> =
+        &composefs::repository::Repository::open_path(rootfs_dir, "composefs").unwrap();
 
-    let erofs_verity =
-        composefs::oci::image::create_image(repo, &hex::encode(image_id), None, None)?; // Some(&verity))?;
+    let erofs_verity = composefs::oci::image::create_image(repo, &image_id.to_hex(), None, None)?; // Some(&verity))?;
 
-    tracing::error!("erofs_verity: {:?}", hex::encode(erofs_verity));
+    tracing::error!("erofs_verity: {:?}", (erofs_verity).to_hex());
 
     if cfg!(target_arch = "s390x") {
         // TODO: Integrate s390x support into install_via_bootupd
@@ -1466,33 +1448,118 @@ async fn install_with_sysroot_composefs(
             &state.config_opts,
         )?;
     }
+
     tracing::debug!("Installed bootloader");
     tracing::debug!("Perfoming post-deployment operations");
 
-    let output = rootfs_dir.open_dir("boot").unwrap(); //.unwrap_or(PathBuf::from("/boot"));
-    tracing::error!("output = {output:?}");
-    composefs::oci::prepare_boot(
-        repo,
-        &hex::encode(image_id),
-        None,
-        &PathBuf::from("/run/bootc/mounts/rootfs/boot"),
-    )?;
+    let rootfs_dir = "/run/bootc/mounts/rootfs";
+    let boot_dir = format!("{rootfs_dir}/boot");
 
-    // match bound_images {
-    //     BoundImages::Skip => {}
-    //     BoundImages::Resolved(resolved_bound_images) => {
-    //         // Now copy each bound image from the host's container storage into the target.
-    //         for image in resolved_bound_images {
-    //             let image = image.image.as_str();
-    //             imgstore.pull_from_host_storage(image).await?;
-    //         }
-    //     }
-    //     BoundImages::Unresolved(bound_images) => {
-    //         crate::boundimage::pull_images_impl(imgstore, bound_images)
-    //             .await
-    //             .context("pulling bound images")?;
-    //     }
-    // }
+    let res =
+        composefs::oci::prepare_boot(repo, &image_id.to_hex(), None, &PathBuf::from(&boot_dir))
+            .context("prepare_boot failed")?;
+
+    tracing::warn!("prepare_boot res = {res:?}");
+
+    // hacks, buncha hacks
+    // add options to boot loader
+    let boot_entries_dir = format!("{boot_dir}/loader/entries");
+    let boot_entries = std::fs::read_dir(&boot_entries_dir)
+        .context(format!("Failed to read dir {boot_entries_dir}"))?;
+
+    for entry in boot_entries {
+        let entry_name = entry?.file_name();
+        let entry_name = entry_name.to_str().expect("bad UTF-8 string for entry");
+
+        let is_conf = entry_name.ends_with(".conf");
+
+        if is_conf {
+            let path = format!("{boot_entries_dir}/{entry_name}");
+
+            let contents = {
+                let mut file = std::fs::OpenOptions::new()
+                    .read(true)
+                    .open(&path)
+                    .context(format!("Failed to open {path}"))?;
+
+                let mut contents = String::new();
+
+                file.read_to_string(&mut contents)
+                    .context("Failed to read file to string")?;
+
+                contents
+            };
+
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .truncate(true)
+                .open(&path)
+                .context(format!("Failed to open {path}"))?;
+
+            let rootfs_uuid = match &rootfs.rootfs_uuid {
+                Some(u) => u,
+                None => anyhow::bail!("Expected rootfs to have a UUID by now"),
+            };
+
+            tracing::warn!("rootfs_uuid = {rootfs_uuid}");
+
+            let mut new_file_content = vec![];
+
+            for line in contents.lines() {
+                if !line.starts_with("options") {
+                    new_file_content.push(line.to_string());
+                    continue;
+                }
+
+                let mut new_line = String::from(line);
+
+                new_line += &format!(
+                    " console=ttyS0,115200 composefs={composefs_img} root=UUID={rootfs_uuid} rw",
+                    composefs_img = erofs_verity.to_hex()
+                );
+
+                new_file_content.push(new_line);
+            }
+
+            // Add a trailing new line
+            new_file_content.push("\n".into());
+
+            tracing::warn!("new_file_content = {new_file_content:#?}");
+
+            file.write_all(new_file_content.join("\n").as_bytes())
+                .context("Failed to write to boot loader file")?;
+        }
+    }
+
+    // Create State directories
+    let erofs_verity_hex = erofs_verity.to_hex();
+    let sysroot_state_dir = format!("{rootfs_dir}/state/{erofs_verity_hex}");
+
+    for dir in ["/etc/work", "/etc/upper", "/var"] {
+        let dir = format!("{sysroot_state_dir}/{dir}");
+        create_dir_all(&dir).context(format!("Failed to create dir {dir}"))?;
+    }
+
+    // Now we move /sysroot/composefs and /sysroot/state to /run/bootc/mounts/rootfs
+    // This is very weird way of doing things...
+    //
+    // Task::new("Moving /sysroot/composefs to /rootfs", "mv")
+    //     .args([
+    //         format!("{rootfs_dir}/sysroot/composefs"),
+    //         format!("{rootfs_dir}"),
+    //     ])
+    //     .run()?;
+
+    // Task::new("Moving /sysroot/state to /rootfs", "mv")
+    //     .args([
+    //         format!("{rootfs_dir}/sysroot/state"),
+    //         format!("{rootfs_dir}"),
+    //     ])
+    //     .run()?;
+
+    // Task::new("Removing /sysroot", "rm")
+    //     .args([format!("-rf"), format!("{rootfs_dir}/sysroot")])
+    //     .run()?;
 
     Ok(())
 }
@@ -1593,7 +1660,7 @@ impl BoundImages {
 }
 
 async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Result<()> {
-    const COMPOSEFS: bool = false;
+    const COMPOSEFS: bool = true;
 
     if matches!(state.selinux_state, SELinuxFinalState::ForceTargetDisabled) {
         rootfs.kargs.push("selinux=0".to_string());
@@ -1621,8 +1688,8 @@ async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Re
 
     tracing::debug!("boot uuid={boot_uuid}");
 
-    tracing::warn!("rootfs: {rootfs:#?}");
-    tracing::warn!("state: {state:#?}");
+    // tracing::warn!("rootfs: {rootfs:#?}");
+    // tracing::warn!("state: {state:#?}");
 
     let bound_images = BoundImages::from_state(state).await?;
 
@@ -1631,11 +1698,11 @@ async fn install_to_filesystem_impl(state: &State, rootfs: &mut RootSetup) -> Re
         let (id, verity) = initialize_composefs_root(state, rootfs).await?;
         tracing::error!(
             "id = {id}, verity = {verity}",
-            id = hex::encode(id),
-            verity = hex::encode(verity)
+            id = id.to_hex(),
+            verity = verity.to_hex()
         );
         // thread::sleep(Duration::from_secs(10000));
-        install_with_sysroot_composefs(state, rootfs, &boot_uuid, id, verity).await?;
+        install_with_sysroot_composefs(state, rootfs, &boot_uuid, id).await?;
     } else {
         // Initialize the ostree sysroot (repo, stateroot, etc.)
         {
