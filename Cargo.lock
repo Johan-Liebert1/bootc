@@ -518,7 +518,6 @@ dependencies = [
 [[package]]
 name = "composefs"
 version = "0.2.0"
-source = "git+https://github.com/containers/composefs-rs?rev=b1bd9c1d253c9b15bbf8e04068ad96edd974ccd0#b1bd9c1d253c9b15bbf8e04068ad96edd974ccd0"
 dependencies = [
  "anyhow",
  "async-compression",
