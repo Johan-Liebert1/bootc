@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -eux
+
+cd "${0%/*}"
+
+cmdline="rd.luks.name=8ec9cda3-6b77-45d7-bb56-a95cd9e83234=root"
+name="luks"
+
+echo "Building UKI addon for kernel command line arguments: ${cmdline}"
+ukify build \
+    --cmdline "${cmdline}" \
+    --signtool sbsign \
+    --secureboot-private-key "secureboot/db.key" \
+    --secureboot-certificate "secureboot/db.crt" \
+    --output "${name}.addon.efi"
