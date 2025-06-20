@@ -9,6 +9,7 @@ use fn_error_context::context;
 use ostree::glib;
 use ostree_container::OstreeImageReference;
 use ostree_ext::container as ostree_container;
+use ostree_ext::container_utils::composefs_booted;
 use ostree_ext::container_utils::ostree_booted;
 use ostree_ext::keyfileext::KeyFileExt;
 use ostree_ext::oci_spec;
@@ -164,6 +165,7 @@ fn boot_entry_from_deployment(
             // SAFETY: The deployserial is really unsigned
             deploy_serial: deployment.deployserial().try_into().unwrap(),
         }),
+        composefs: None,
     };
     Ok(r)
 }
@@ -293,13 +295,53 @@ pub(crate) async fn status(opts: super::cli::StatusOpts) -> Result<()> {
         0 | 1 => {}
         o => anyhow::bail!("Unsupported format version: {o}"),
     };
-    let mut host = if !ostree_booted()? {
-        Default::default()
-    } else {
+    let mut host = if ostree_booted()? {
         let sysroot = super::cli::get_storage().await?;
         let booted_deployment = sysroot.booted_deployment();
         let (_deployments, host) = get_status(&sysroot, booted_deployment.as_ref())?;
         host
+    } else if composefs_booted()? {
+        let dir_contents = std::fs::read_dir("/sysroot/composefs/images")?;
+
+        let host_spec = HostSpec {
+            image: Some(ImageReference {
+                image: "".into(),
+                transport: "".into(),
+                signature: None,
+            }),
+            boot_order: BootOrder::Default,
+        };
+
+        let mut host = Host::new(host_spec);
+
+        let cmdline = crate::kernel::parse_cmdline()?;
+        let booted = cmdline.iter().find_map(|x| x.strip_prefix("composefs="));
+
+        let Some(booted) = booted else {
+            anyhow::bail!("Failed to find composefs parameter in kernel cmdline");
+        };
+
+        host.status = HostStatus {
+            staged: None,
+            booted: Some(BootEntry {
+                image: None,
+                cached_update: None,
+                incompatible: false,
+                pinned: false,
+                store: None,
+                ostree: None,
+                composefs: Some(crate::spec::BootEntryComposefs {
+                    verity: booted.into(),
+                }),
+            }),
+            rollback: None,
+            rollback_queued: false,
+            ty: None,
+        };
+
+        host
+    } else {
+        Default::default()
     };
 
     // We could support querying the staged or rollback deployments
@@ -434,6 +476,27 @@ fn human_render_slot_ostree(
     Ok(())
 }
 
+/// Output a rendering of a non-container composefs boot entry.
+fn human_render_slot_composefs(
+    mut out: impl Write,
+    slot: Slot,
+    entry: &crate::spec::BootEntry,
+    erofs_verity: &str,
+) -> Result<()> {
+    // TODO consider rendering more ostree stuff here like rpm-ostree status does
+    let prefix = match slot {
+        Slot::Staged => "  Staged composefs".into(),
+        Slot::Booted => format!("{} Booted composefs", crate::glyph::Glyph::BlackCircle),
+        Slot::Rollback => "  Rollback composefs".into(),
+    };
+    let prefix_len = prefix.len();
+    writeln!(out, "{prefix}")?;
+    write_row_name(&mut out, "Commit", prefix_len)?;
+    writeln!(out, "{erofs_verity}")?;
+    tracing::debug!("pinned={}", entry.pinned);
+    Ok(())
+}
+
 fn human_readable_output_booted(mut out: impl Write, host: &Host) -> Result<()> {
     let mut first = true;
     for (slot_name, status) in [
@@ -451,6 +514,8 @@ fn human_readable_output_booted(mut out: impl Write, host: &Host) -> Result<()> 
                 human_render_slot(&mut out, slot_name, host_status, image)?;
             } else if let Some(ostree) = host_status.ostree.as_ref() {
                 human_render_slot_ostree(&mut out, slot_name, host_status, &ostree.checksum)?;
+            } else if let Some(composefs) = &host_status.composefs {
+                human_render_slot_composefs(&mut out, slot_name, host_status, &composefs.verity)?;
             } else {
                 writeln!(out, "Current {slot_name} state is unknown")?;
             }
