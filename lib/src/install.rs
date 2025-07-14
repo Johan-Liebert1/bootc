@@ -67,6 +67,7 @@ use ostree_ext::{
 #[cfg(feature = "install-to-disk")]
 use rustix::fs::FileTypeExt;
 use rustix::fs::MetadataExt as _;
+use rustix::path::Arg;
 use serde::{Deserialize, Serialize};
 use schemars::JsonSchema;
 
@@ -1696,7 +1697,7 @@ pub fn get_esp_partition(device: &str) -> Result<(String, Option<String>)> {
     Ok((esp.node, esp.uuid))
 }
 
-fn get_user_config(uki_id: &str) -> String {
+pub(crate) fn get_user_config(uki_id: &str) -> String {
     let s = format!(
         r#"
 menuentry "Fedora Bootc UKI: ({uki_id})" {{
@@ -1712,7 +1713,19 @@ menuentry "Fedora Bootc UKI: ({uki_id})" {{
 }
 
 /// Contains the EFP's filesystem UUID. Used by grub
-const EFI_UUID_FILE: &str = "efiuuid.cfg";
+pub(crate) const EFI_UUID_FILE: &str = "efiuuid.cfg";
+
+/// Returns the beginning of the grub2/user.cfg file
+/// where we source a file containing the ESPs filesystem UUID
+pub(crate) fn get_efi_uuid_source() -> String {
+    format!(
+        r#"
+if [ -f ${{config_directory}}/{EFI_UUID_FILE} ]; then
+        source ${{config_directory}}/{EFI_UUID_FILE}
+fi
+"#
+    )
+}
 
 #[context("Setting up UKI boot")]
 pub(crate) fn setup_composefs_uki_boot(
@@ -1720,7 +1733,7 @@ pub(crate) fn setup_composefs_uki_boot(
     // TODO: Make this generic
     repo: ComposefsRepository<Sha256HashValue>,
     id: &Sha256HashValue,
-    entry: BootEntry<Sha256HashValue>,
+    entry: ComposefsBootEntry<Sha256HashValue>,
 ) -> Result<()> {
     let (root_path, esp_device) = match setup_type {
         BootSetupType::Setup(root_setup) => {
@@ -1784,13 +1797,7 @@ pub(crate) fn setup_composefs_uki_boot(
 
     let is_upgrade = matches!(setup_type, BootSetupType::Upgrade);
 
-    let efi_uuid_source = format!(
-        r#"
-if [ -f ${{config_directory}}/{EFI_UUID_FILE} ]; then
-        source ${{config_directory}}/{EFI_UUID_FILE}
-fi
-"#
-    );
+    let efi_uuid_source = get_efi_uuid_source();
 
     let user_cfg_name = if is_upgrade {
         "grub2/user.cfg.staged"
@@ -1800,6 +1807,8 @@ fi
     let user_cfg_path = boot_dir.join(user_cfg_name);
 
     // Iterate over all available deployments, and generate a menuentry for each
+    //
+    // TODO: We might find a staged deployment here
     if is_upgrade {
         let mut usr_cfg = std::fs::OpenOptions::new()
             .write(true)
@@ -1863,7 +1872,7 @@ pub(crate) async fn pull_composefs_repo(
     image: &String,
 ) -> Result<(
     ComposefsRepository<Sha256HashValue>,
-    Vec<BootEntry<Sha256HashValue>>,
+    Vec<ComposefsBootEntry<Sha256HashValue>>,
     Sha256HashValue,
 )> {
     let rootfs_dir = cap_std::fs::Dir::open_ambient_dir("/sysroot", cap_std::ambient_authority())?;
