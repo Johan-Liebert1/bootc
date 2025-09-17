@@ -29,6 +29,7 @@ EOF
 
 losetup /dev/loop0 test.img
 sfdisk --wipe=always /dev/loop0 < buf
+rm ./buf
 
 # To make sure kernel updates
 partx --update /dev/loop0

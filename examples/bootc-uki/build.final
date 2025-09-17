@@ -6,7 +6,8 @@ cd "${0%/*}"
 
 # cargo build --release --features=composefs-backend
 
-IMAGE="quay.io/fedora/fedora-bootc-base-uki:42"
+FROM="${FROM:-quay.io/fedora/fedora-bootc-base-uki:42}"
+TAG="${TAG:-quay.io/fedora/fedora-bootc-uki:42}"
 
 cp ../../target/release/bootc .
 
@@ -37,16 +38,17 @@ fi
 
 # For debugging, add --no-cache to podman command
 sudo podman build \
-    -t quay.io/fedora/fedora-bootc-uki:42 \
+    --from "${FROM}" \
+    -t "${TAG}" \
     --build-arg=COMPOSEFS_FSVERITY="${COMPOSEFS_FSVERITY}" \
     -f Containerfile.stage2 \
     --secret=id=key,src=secureboot/db.key \
     --secret=id=cert,src=secureboot/db.crt
 
-rm -rf tmp/efi
-mkdir -p tmp/efi
-./bootc internals cfs --repo tmp/sysroot/composefs oci pull containers-storage:"${IMAGE_ID}"
-./bootc internals cfs --repo tmp/sysroot/composefs oci compute-id --bootable "${IMAGE_ID}"
-./bootc internals cfs --repo tmp/sysroot/composefs oci prepare-boot "${IMAGE_ID}" --bootdir tmp/efi
+# rm -rf tmp/efi
+# mkdir -p tmp/efi
+# ./bootc internals cfs --repo tmp/sysroot/composefs oci pull containers-storage:"${IMAGE_ID}"
+# ./bootc internals cfs --repo tmp/sysroot/composefs oci compute-id --bootable "${IMAGE_ID}"
+# ./bootc internals cfs --repo tmp/sysroot/composefs oci prepare-boot "${IMAGE_ID}" --bootdir tmp/efi
 
 umount tmp

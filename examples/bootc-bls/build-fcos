@@ -1,0 +1,6 @@
+#!/bin/bash
+
+export FROM="${IMAGE:-quay.io/fedora/fedora-coreos:stable}"
+export TAG="${IMAGE:-quay.io/fedora/fedora-coreos-bls:stable}"
+export EXTRA="extra-fcos"
+exec ./build
