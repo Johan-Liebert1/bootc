@@ -2,8 +2,9 @@
 
 set -euxo pipefail
 
+IMAGE="${IMAGE:-quay.io/fedora/fedora-bootc-bls:42}"
+
 bootc_project="/srv/bootc"
-IMAGE="quay.io/fedora/fedora-bootc-bls:42"
 
 if [[ "$PWD" != "$bootc_project/examples" ]]; then
     echo "Run this command from $bootc_project/examples"

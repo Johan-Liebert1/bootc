@@ -2,8 +2,9 @@
 
 set -euxo pipefail
 
+IMAGE="${IMAGE:-quay.io/fedora/fedora-bootc-bls:42}"
+
 bootc_project="/srv/bootc"
-IMAGE="quay.io/fedora/fedora-bootc-bls:42"
 
 if [[ "$PWD" != "$bootc_project/examples" ]]; then
     echo "Run this command from $bootc_project/examples"
@@ -15,11 +16,12 @@ if [[ ! -f systemd-bootx64.efi ]]; then
     exit 1
 fi
 
-rm -rf ./test.img
+umount -R efi || true
+losetup --detach-all || true
+
 rm -rf ./test.img
 truncate -s 15G test.img
 
-#    --env RUST_LOG=debug \
 #    --env RUST_BACKTRACE=1 \
 # -v /srv/bootc/target/release/bootc:/usr/bin/bootc:ro,Z \
 podman run \
@@ -29,6 +31,7 @@ podman run \
     -v /var/lib/containers:/var/lib/containers \
     -v /var/tmp:/var/tmp \
     -v $PWD:/output \
+    --env RUST_LOG=debug \
     --security-opt label=type:unconfined_t \
     "${IMAGE}" \
     bootc install to-disk \

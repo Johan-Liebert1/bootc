@@ -16,7 +16,7 @@ mount /dev/vdb3 tmp
 # rm -rf tmp/sysroot
 mkdir -p tmp/sysroot/composefs
 
-IMAGE_ID="$(sed s/sha256:// tmp/iid)"
+IMAGE_ID="$(sed s/sha256:// iid)"
 ./bootc internals cfs --repo tmp/sysroot/composefs oci pull containers-storage:"${IMAGE_ID}"
 COMPOSEFS_FSVERITY="$(./bootc internals cfs --repo tmp/sysroot/composefs oci compute-id --bootable "${IMAGE_ID}")"
 

@@ -20,5 +20,5 @@ podman build \
     --from "${FROM}" \
     -t "${TAG}" \
     -f Containerfile.stage1 \
-    --iidfile=tmp/iid \
+    --iidfile=iid \
     "${EXTRA}"
