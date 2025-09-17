@@ -4,15 +4,12 @@ set -eux
 
 cd "${0%/*}"
 
-cargo build --release --bin bootc --bin bootc-initramfs-setup
+# cargo build --release --features=composefs-backend
 
 cp ../../target/release/bootc .
 cp ../../target/release/bootc-initramfs-setup extra/usr/lib/dracut/modules.d/37bootc/
 
-mkdir -p tmp
-
 podman build \
     -t quay.io/fedora/fedora-bootc-bls:42 \
     -f Containerfile \
-    --iidfile=tmp/iid \
     .
