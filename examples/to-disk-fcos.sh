@@ -3,4 +3,5 @@
 set -euxo pipefail
 
 export IMAGE="quay.io/fedora/fedora-coreos-bls:stable"
-exec ./to-disk.sh
+# TODO: This doesn't work rn because we don't have a /boot partition
+exec ./to-disk.sh "${@}"

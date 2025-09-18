@@ -2,42 +2,59 @@
 
 set -euxo pipefail
 
-IMAGE="${IMAGE:-quay.io/fedora/fedora-bootc-bls:42}"
-
-bootc_project="/srv/bootc"
-
-if [[ "$PWD" != "$bootc_project/examples" ]]; then
-    echo "Run this command from $bootc_project/examples"
+if [[ "$(id -u)" != "0" ]]; then
+    echo "Root privileges required"
     exit 1
 fi
 
-if [[ ! -f systemd-bootx64.efi ]]; then
-    echo "Needs /srv/bootc/examples/systemd-bootx64.efi to exists for now"
+IMAGE="${IMAGE:-localhost:5000/quay.io/fedora/fedora-coreos-bls:stable}"
+TEMPDIR="/var/tmp/bootc"
+
+rm -rf $TEMPDIR || true
+
+mkdir -p "$TEMPDIR/mnt"
+
+SYSTEMD_EFI_PATH="${1-}"
+
+if [[ -n "$SYSTEMD_EFI_PATH" && -f "$SYSTEMD_EFI_PATH" ]]; then
+    cp "$SYSTEMD_EFI_PATH" "$TEMPDIR/systemd-x64.efi"
+else
+    echo "Need systemd efi path as first arg"
     exit 1
 fi
 
-umount -R efi || true
+BOOTC_BIN_PATH="${2-}"
+
+if [[ -n "$BOOTC_BIN_PATH" && -f "$BOOTC_BIN_PATH" ]]; then
+    cp "$BOOTC_BIN_PATH" "$TEMPDIR/bootc"
+else
+    echo "BOOTC BINARY NOT PROVIDED"
+fi
+
+umount -R "$TEMPDIR/mnt" || true
 losetup --detach-all || true
 
-rm -rf ./test.img
-truncate -s 15G test.img
+rm -rf "$TEMPDIR/test.img"
+truncate -s 15G "$TEMPDIR/test.img"
 
 #    --env RUST_BACKTRACE=1 \
 # -v /srv/bootc/target/release/bootc:/usr/bin/bootc:ro,Z \
 podman run \
     --rm --privileged \
     --pid=host \
+    --net=host \
     -v /dev:/dev \
     -v /var/lib/containers:/var/lib/containers \
     -v /var/tmp:/var/tmp \
-    -v $PWD:/output \
+    "${BOOTC_MOUNT[@]}" \
+    -v $TEMPDIR:/output \
     --env RUST_LOG=debug \
     --security-opt label=type:unconfined_t \
     "${IMAGE}" \
     bootc install to-disk \
         --composefs-native \
         --bootloader=systemd \
-        --source-imgref "containers-storage:$IMAGE" \
+        --source-imgref "docker://$IMAGE" \
         --target-imgref="$IMAGE" \
         --target-transport="docker" \
         --filesystem=ext4 \
@@ -50,15 +67,16 @@ podman run \
         /output/test.img
 
 # Manual systemd-boot installation
-losetup /dev/loop0 test.img
+losetup /dev/loop0 "$TEMPDIR/test.img"
 partx --update /dev/loop0
-mkdir -p efi
-mount /dev/loop0p2 efi
 
-cp systemd-bootx64.efi efi/EFI/fedora/grubx64.efi
-mkdir -p efi/loader
-echo "timeout 5" > efi/loader/loader.conf
-rm -rf efi/EFI/fedora/grub.cfg
+mkdir -p "$TEMPDIR/efi"
+mount /dev/loop0p2 "$TEMPDIR/efi"
+cp  "$TEMPDIR/systemd-x64.efi" "$TEMPDIR/efi/EFI/fedora/grubx64.efi"
 
-umount efi
+mkdir -p "$TEMPDIR/efi/loader"
+echo "timeout 5" > $TEMPDIR/efi/loader/loader.conf
+rm -rf $TEMPDIR/efi/EFI/fedora/grub.cfg
+
+umount $TEMPDIR/efi
 losetup -d /dev/loop0

@@ -3,4 +3,4 @@
 set -euxo pipefail
 
 export IMAGE="quay.io/fedora/fedora-coreos-uki:stable"
-exec ./to-filesystem.sh
+exec ./to-filesystem.sh "${@}"
