@@ -1,0 +1,4 @@
+# Disable services that don't work with bootc/composefs
+disable coreos-warn-invalid-mounts.service
+disable coreos-populate-lvmdevices.service
+disable coreos-oci-migration-motd.service
