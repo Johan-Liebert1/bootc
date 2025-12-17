@@ -133,7 +133,10 @@ pub(crate) fn update_target_imgref_in_origin(
     // Replace the origin
     ini = ini.section("origin").item(
         ORIGIN_CONTAINER,
-        format!("ostree-unverified-image:{imgref}"),
+        format!(
+            "ostree-unverified-image:{}",
+            get_imgref(&imgref.transport, &imgref.image)
+        ),
     );
 
     state_dir
