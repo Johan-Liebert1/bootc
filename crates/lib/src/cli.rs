@@ -618,8 +618,12 @@ pub(crate) enum InternalsOpts {
     /// Dump CLI structure as JSON for documentation generation
     DumpCliJson,
     PrepSoftReboot {
-        deployment: String,
-        #[clap(long)]
+        #[clap(required_unless_present = "reset")]
+        deployment: Option<String>,
+        #[clap(long, conflicts_with = "reset")]
+        reboot: bool,
+        #[clap(long, conflicts_with = "reboot")]
+        reset: bool,
         reboot: bool,
     },
 }
@@ -1834,7 +1838,11 @@ async fn run_from_opt(opt: Opt) -> Result<()> {
 
                 Ok(())
             }
-            InternalsOpts::PrepSoftReboot { deployment, reboot } => {
+            InternalsOpts::PrepSoftReboot {
+                deployment,
+                reboot,
+                reset,
+            } => {
                 let storage = &get_storage().await?;
 
                 match storage.kind()? {
@@ -1843,8 +1851,14 @@ async fn run_from_opt(opt: Opt) -> Result<()> {
                         anyhow::bail!("soft-reboot only implemented for composefs")
                     }
                     BootedStorageKind::Composefs(booted_cfs) => {
-                        prepare_soft_reboot_composefs(&storage, &booted_cfs, &deployment, reboot)
-                            .await
+                        prepare_soft_reboot_composefs(
+                            &storage,
+                            &booted_cfs,
+                            deployment.as_ref(),
+                            reboot,
+                            reset,
+                        )
+                        .await
                     }
                 }
             }
