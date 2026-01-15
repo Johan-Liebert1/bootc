@@ -17,6 +17,9 @@ if not $soft_reboot_capable {
 # Here we just capture information.
 bootc status
 
+let st = bootc status --json | from json
+let is_composefs = ($st.status.booted.composefs? != null)
+
 # Run on the first boot
 def initial_build [] {
     tap begin "local image push + pull + upgrade"
@@ -41,8 +44,13 @@ RUN echo test content > /usr/share/testfile-for-soft-reboot.txt
 
     assert ("/run/nextroot" | path exists)
 
-    # See ../bug-soft-reboot.md - TMT cannot handle systemd soft-reboots
-    ostree admin prepare-soft-reboot --reset
+    if not $is_composefs {
+        # See ../bug-soft-reboot.md - TMT cannot handle systemd soft-reboots
+        ostree admin prepare-soft-reboot --reset
+    } else {
+        bootc internals prep-soft-reboot --reset
+    }
+
     # https://tmt.readthedocs.io/en/stable/stories/features.html#reboot-during-test
     tmt-reboot
 }

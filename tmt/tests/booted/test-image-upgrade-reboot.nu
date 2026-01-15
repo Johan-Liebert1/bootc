@@ -38,9 +38,14 @@ def initial_build [] {
     tap begin "local image push + pull + upgrade"
 
     let imgsrc = imgsrc
+
+    print $"USING IMAGE: ($imgsrc)"
+
     # For the packit case, we build locally right now
     if ($imgsrc | str ends-with "-local") {
         bootc image copy-to-storage
+
+        print $"After copy-to-storage"
 
         # A simple derived container that adds a file
         "FROM localhost/bootc
@@ -53,6 +58,7 @@ RUN touch /usr/share/testing-bootc-upgrade-apply
     # Now, switch into the new image
     print $"Applying ($imgsrc)"
     bootc switch --transport containers-storage ($imgsrc)
+    print $"Switch to ($imgsrc) COMPLETE"
     tmt-reboot
 }
 

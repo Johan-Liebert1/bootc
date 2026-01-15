@@ -448,8 +448,10 @@ fn set_reboot_capable_type1_deployments(
         .chain(host.status.rollback.iter_mut())
         .chain(host.status.other_deployments.iter_mut())
     {
-        let entry = find_bls_entry(&depl.require_composefs()?.verity, &bls_entries)?
-            .ok_or_else(|| anyhow::anyhow!("Entry not found"))?;
+        let v = &depl.require_composefs()?.verity;
+
+        let entry = find_bls_entry(v, &bls_entries)?
+            .ok_or_else(|| anyhow::anyhow!("Entry {v} not found"))?;
 
         let depl_cmdline = entry.get_cmdline()?;
 

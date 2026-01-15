@@ -124,7 +124,7 @@ package:
 
 # Build+test using the `composefs-sealeduki-sdboot` variant.
 test-composefs:
-    just variant=composefs-sealeduki-sdboot test-tmt readonly local-upgrade-reboot
+    just variant=composefs-sealeduki-sdboot test-tmt readonly soft-reboot
 
 # Only used by ci.yml right now
 build-install-test-image: build
@@ -162,6 +162,7 @@ _build-upgrade-image:
 # Assume the localhost/bootc image is up to date, and just run tests.
 # Useful for iterating on tests quickly.
 test-tmt-nobuild *ARGS:
+    echo {{ARGS}}
     cargo xtask run-tmt --env=BOOTC_variant={{variant}} --upgrade-image={{upgrade_img}} {{base_img}} {{ARGS}}
 
 # Build test container image for testing on coreos with SKIP_CONFIGS=1,

@@ -54,7 +54,11 @@ RUN echo test content > /usr/share/blah.txt
     let v = podman run --rm localhost/bootc-derived cat /usr/share/blah.txt | str trim
     assert equal $v "test content"
 
-    let orig_root_mtime = ls -Dl /ostree/bootc | get modified
+    let orig_root_mtime = null;
+
+    if not $is_composefs {
+        $orig_root_mtime = ls -Dl /ostree/bootc | get modified
+    }
 
     # Now, fetch it back into the bootc storage!
     # We also test the progress API here
@@ -79,9 +83,11 @@ RUN echo test content > /usr/share/blah.txt
     # Verify that we logged to the journal
     journalctl _MESSAGE_ID=3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7
 
-    # The mtime should change on modification
-    let new_root_mtime = ls -Dl /ostree/bootc | get modified
-    assert ($new_root_mtime > $orig_root_mtime)
+    if not $is_composefs {
+        # The mtime should change on modification
+        let new_root_mtime = ls -Dl /ostree/bootc | get modified
+        assert ($new_root_mtime > $orig_root_mtime)
+    }
 
     # Test for https://github.com/ostreedev/ostree/issues/3544
     # Add a quoted karg using rpm-ostree if available

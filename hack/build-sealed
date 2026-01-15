@@ -19,7 +19,7 @@ runv() {
 }
 
 case $variant in
-  ostree)
+  ostree|composefs)
     # Nothing to do
     echo "Not building a sealed image; forwarding tag"
     runv podman tag $input_image $output_image

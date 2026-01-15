@@ -272,7 +272,7 @@ pub(crate) struct Storage {
     pub esp: Option<TempMount>,
 
     /// Our runtime state
-    run: Dir,
+    pub run: Dir,
 
     /// The OSTree storage
     ostree: OnceCell<SysrootLock>,

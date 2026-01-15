@@ -1,0 +1,65 @@
+DEBUG Podman command: 
+
+
+podman run
+--pull=never
+--label=bcvk.ephemeral=1
+--mount=type=tmpfs,target=/run
+--rm -t -d
+--cap-add=all
+--security-opt=label=disable
+--security-opt=seccomp=unconfined
+--security-opt=unmask=/proc/*
+-v /sys:/sys:ro
+-v /var/tmp:/var/tmp
+--device=/dev/kvm
+--device=/dev/vhost-vsock
+-v /usr:/run/tmproot/usr:ro
+-v /tmp/.tmpebjLzO/entrypoint:/var/lib/bcvk/entrypoint
+-v /home/pragyan/.cargo/bin/bcvk:/run/selfexe:ro
+--stop-signal=SIGKILL
+--mount=type=image,source=localhost/bootc,target=/run/source-image,rw=true
+-v /home/pragyan/.local/share/containers/storage:/run/host-mounts/hoststorage:ro
+-v /home/pragyan/.local/share/libvirt/images/bootc-base-4b963f65acbfab31.WzUM7g.tmp.qcow2:/run/disk-files/output:rw
+--dns 192.168.0.1
+-e BCK_CONFIG={
+  "image": "localhost/bootc",
+  "common": {
+    "itype": null,
+    "memory": {
+      "memory": "4G"
+    },
+    "vcpus": null,
+    "console": false,
+    "debug": false,
+    "virtio_serial_out": [],
+    "execute": [],
+    "ssh_keygen": true
+  },
+  "podman": {
+    "tty": true,
+    "interactive": false,
+    "detach": true,
+    "rm": true,
+    "name": null,
+    "network": null,
+    "label": [],
+    "env": []
+  },
+  "debug_entrypoint": null,
+  "bind_mounts": [],
+  "ro_bind_mounts": [],
+  "systemd_units_dir": null,
+  "bind_storage_ro": true,
+  "add_swap": "21474836480",
+  "mount_disk_files": [
+    "/home/pragyan/.local/share/libvirt/images/bootc-base-4b963f65acbfab31.WzUM7g.tmp.qcow2:output:qcow2"
+  ],
+  "kernel_args": [],
+  "host_dns_servers": [
+    "192.168.0.1"
+  ]
+}
+-e BOOTC_DISK_FILES=/run/disk-files/output:output:qcow2
+localhost/bootc
+/var/lib/bcvk/entrypoint

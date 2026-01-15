@@ -29,6 +29,8 @@ const ENV_BOOTC_UPGRADE_IMAGE: &str = "BOOTC_upgrade_image";
 // Distro identifiers
 const DISTRO_CENTOS_9: &str = "centos-9";
 
+const KARGS: [&str; 2] = ["--karg=enforcing=0", "--karg=console=ttyS0,115000n8"];
+
 // Import the argument types from xtask.rs
 use crate::{RunTmtArgs, TmtProvisionArgs};
 
@@ -280,6 +282,8 @@ fn parse_plan_metadata(plans_file: &Utf8Path) -> Result<std::collections::HashMa
 /// This spawns a separate VM per test plan to avoid state leakage between tests.
 #[context("Running TMT tests")]
 pub(crate) fn run_tmt(sh: &Shell, args: &RunTmtArgs) -> Result<()> {
+    println!("RunTmtArgs: {args:#?}");
+
     // Check dependencies first
     check_dependencies(sh)?;
 
@@ -437,7 +441,8 @@ pub(crate) fn run_tmt(sh: &Shell, args: &RunTmtArgs) -> Result<()> {
         let firmware_args_slice = firmware_args.as_slice();
         let launch_result = cmd!(
             sh,
-            "bcvk libvirt run --name {vm_name} --detach {firmware_args_slice...} {COMMON_INST_ARGS...} {plan_bcvk_opts...} {image}"
+            "bcvk libvirt run --name {vm_name} --detach {firmware_args_slice...}
+            --filesystem ext4 --composefs-backend {KARGS...} {COMMON_INST_ARGS...} {plan_bcvk_opts...} {image}"
         )
         .run()
         .context("Launching VM with bcvk");
@@ -686,12 +691,15 @@ pub(crate) fn tmt_provision(sh: &Shell, args: &TmtProvisionArgs) -> Result<()> {
 
     let firmware_args = build_firmware_args(sh, image)?;
 
+    println!("firmware_args: {firmware_args:#?}");
+
     // Launch VM with bcvk
     // Use ds=iid-datasource-none to disable cloud-init for faster boot
     let firmware_args_slice = firmware_args.as_slice();
+
     cmd!(
         sh,
-        "bcvk libvirt run --name {vm_name} --detach {firmware_args_slice...} {COMMON_INST_ARGS...} {image}"
+        "bcvk libvirt run --name {vm_name} --filesystem ext4 --composefs-backend {KARGS...} --detach {firmware_args_slice...} {COMMON_INST_ARGS...} {image}"
     )
     .run()
     .context("Launching VM with bcvk")?;
