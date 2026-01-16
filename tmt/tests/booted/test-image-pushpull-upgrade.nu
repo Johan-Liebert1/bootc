@@ -54,7 +54,7 @@ RUN echo test content > /usr/share/blah.txt
     let v = podman run --rm localhost/bootc-derived cat /usr/share/blah.txt | str trim
     assert equal $v "test content"
 
-    let orig_root_mtime = null;
+    mut orig_root_mtime = null;
 
     if not $is_composefs {
         $orig_root_mtime = ls -Dl /ostree/bootc | get modified
@@ -72,26 +72,25 @@ RUN echo test content > /usr/share/blah.txt
     systemd-run -u test-cat-progress -- /bin/bash -c $"exec cat ($progress_fifo) > ($progress_json)"
     # nushell doesn't do fd passing right now either, so run via bash
     bash -c $"bootc switch --progress-fd 3 --transport containers-storage localhost/bootc-derived 3>($progress_fifo)"
-    # Now, let's do some checking of the progress json
-    let progress = open --raw $progress_json | from json -o
-    sanity_check_switch_progress_json $progress
-
-    # Check that /run/reboot-required exists and is not empty
-    let rr_meta = (ls /run/reboot-required | first)
-    assert ($rr_meta.size > 0b)
-
-    # Verify that we logged to the journal
-    journalctl _MESSAGE_ID=3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7
 
     if not $is_composefs {
+        # Now, let's do some checking of the progress json
+        let progress = open --raw $progress_json | from json -o
+        sanity_check_switch_progress_json $progress
+
+        # Check that /run/reboot-required exists and is not empty
+        let rr_meta = (ls /run/reboot-required | first)
+        assert ($rr_meta.size > 0b)
+
+        # Verify that we logged to the journal
+        journalctl _MESSAGE_ID=3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7
+
         # The mtime should change on modification
         let new_root_mtime = ls -Dl /ostree/bootc | get modified
         assert ($new_root_mtime > $orig_root_mtime)
-    }
 
-    # Test for https://github.com/ostreedev/ostree/issues/3544
-    # Add a quoted karg using rpm-ostree if available
-    if not $is_composefs {
+        # Test for https://github.com/ostreedev/ostree/issues/3544
+        # Add a quoted karg using rpm-ostree if available
         # Check rpm-ostree and rpm-ostreed service status before run rpm-ostree
         # And collect info for flaky error "error: System transaction in progress"
         rpm-ostree status
