@@ -34,6 +34,7 @@ use schemars::schema_for;
 use serde::{Deserialize, Serialize};
 
 use crate::bootc_composefs::delete::delete_composefs_deployment;
+use crate::bootc_composefs::gc::composefs_gc;
 use crate::bootc_composefs::soft_reboot::{prepare_soft_reboot_composefs, reset_soft_reboot};
 use crate::bootc_composefs::{
     digest::{compute_composefs_digest, new_temp_composefs_repo},
@@ -647,6 +648,10 @@ pub(crate) enum InternalsOpts {
         reboot: bool,
         #[clap(long, conflicts_with = "reboot")]
         reset: bool,
+    },
+    ComposefsGC {
+        #[clap(long)]
+        dry_run: bool,
     },
 }
 
@@ -1893,6 +1898,17 @@ async fn run_from_opt(opt: Opt) -> Result<()> {
                             reboot,
                         )
                         .await
+                    }
+                }
+            }
+            InternalsOpts::ComposefsGC { dry_run } => {
+                let storage = &get_storage().await?;
+
+                match storage.kind()? {
+                    BootedStorageKind::Ostree(..) => todo!(),
+
+                    BootedStorageKind::Composefs(booted_cfs) => {
+                        composefs_gc(storage, &booted_cfs, dry_run).await
                     }
                 }
             }
