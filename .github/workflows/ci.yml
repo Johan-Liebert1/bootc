@@ -193,8 +193,6 @@ jobs:
             ;;
           esac
 
-
-
           if [ "${{ matrix.variant }}" = "composefs-sealeduki-sdboot" ]; then
             BUILDROOTBASE=$(just pullspec-for-os buildroot-base ${{ matrix.test_os }})
             echo "BOOTC_buildroot_base=${BUILDROOTBASE}" >> $GITHUB_ENV
