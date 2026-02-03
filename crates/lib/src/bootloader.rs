@@ -158,7 +158,7 @@ pub(crate) fn install_via_bootupd(
     }
 }
 
-#[context("Installing systemd boot")]
+#[context("Installing bootloader")]
 pub(crate) fn install_systemd_boot(
     device: &PartitionTable,
     _rootfs: &Utf8Path,

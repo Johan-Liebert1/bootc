@@ -120,7 +120,6 @@ is_composefs=$(bootc status --json | jq '.status.booted.composefs')
 
 if [[ $is_composefs != "null" ]]; then
     COMPOSEFS_BACKEND+=("--composefs-backend")
-    COMPOSEFS_BACKEND+=("--filesystem=ext4")
 fi
 
 echo "${COMPOSEFS_BACKEND[@]}"
