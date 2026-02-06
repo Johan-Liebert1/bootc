@@ -120,6 +120,8 @@ is_composefs=$(bootc status --json | jq '.status.booted.composefs')
 
 if [[ $is_composefs != "null" ]]; then
     COMPOSEFS_BACKEND+=("--composefs-backend")
+    tune2fs -O verity /dev/BL/var02
+    tune2fs -O verity /dev/BL/root02
 fi
 
 echo "${COMPOSEFS_BACKEND[@]}"
@@ -142,9 +144,27 @@ podman run \
 
 # Verify the installation succeeded
 echo "Verifying installation..."
-test -d /var/mnt/target/ostree
-test -d /var/mnt/target/ostree/repo
-# Verify bootloader was installed (grub2 or loader for different configurations)
-test -d /var/mnt/target/boot/grub2 || test -d /var/mnt/target/boot/loader
+
+if [[ $is_composefs == "null" ]]; then
+    test -d /var/mnt/target/ostree
+    test -d /var/mnt/target/ostree/repo
+
+    # Verify bootloader was installed (grub2 or loader for different configurations)
+    test -d /var/mnt/target/boot/grub2 || test -d /var/mnt/target/boot/loader
+else 
+    test -d /var/mnt/target/composefs
+    ls -lahR /var/mnt/target/boot
+
+    bootloader=$(bootc status --json | jq '.status.booted.composefs.bootloader' | tr '[:upper:]' '[:lower:]')
+    
+    if [[ $bootloader == "grub" ]]; then
+        test -d /var/mnt/target/boot/grub2 || test -d /var/mnt/target/boot/loader
+    else
+        test -d /var/mnt/target/boot/efi/EFI
+        test -d /var/mnt/target/boot/efi/loader/entries
+    fi
+
+fi
+
 
 echo "Installation to-filesystem with separate /var mount succeeded!"
