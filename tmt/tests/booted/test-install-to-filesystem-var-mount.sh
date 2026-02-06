@@ -56,13 +56,13 @@ parted -s "$LOOP_DEV" mklabel gpt
 # BIOS boot partition (for GRUB on GPT)
 parted -s "$LOOP_DEV" mkpart primary 1MiB 2MiB
 parted -s "$LOOP_DEV" set 1 bios_grub on
-# EFI partition (200 MiB)
-parted -s "$LOOP_DEV" mkpart primary fat32 2MiB 202MiB
+# EFI partition (1 GiB)
+parted -s "$LOOP_DEV" mkpart primary fat32 2MiB 1026MiB
 parted -s "$LOOP_DEV" set 2 esp on
 # Boot partition (1 GiB)
-parted -s "$LOOP_DEV" mkpart primary ext4 202MiB 1226MiB
+parted -s "$LOOP_DEV" mkpart primary ext4 1026MiB 2052MiB
 # LVM partition (rest of disk)
-parted -s "$LOOP_DEV" mkpart primary 1226MiB 100%
+parted -s "$LOOP_DEV" mkpart primary 2052MiB 100%
 
 # Reload partition table
 partprobe "$LOOP_DEV"
@@ -153,9 +153,13 @@ if [[ $is_composefs == "null" ]]; then
     test -d /var/mnt/target/boot/grub2 || test -d /var/mnt/target/boot/loader
 else 
     test -d /var/mnt/target/composefs
-    ls -lahR /var/mnt/target/boot
 
+    # TODO(Johan-Liebert1): This is getting bootloader from the VM, which is not quite correct
+    # It works for now as the CI runs separately for each bootloader, but we need to get the 
+    # bootloader from the installed systemd if we wish to run the tests locally without rebuilding the images
+    # This probably also happens in other tests, one instance is install-outside-container
     bootloader=$(bootc status --json | jq '.status.booted.composefs.bootloader' | tr '[:upper:]' '[:lower:]')
+    bootloader=${bootloader//\"/}
     
     if [[ $bootloader == "grub" ]]; then
         test -d /var/mnt/target/boot/grub2 || test -d /var/mnt/target/boot/loader
