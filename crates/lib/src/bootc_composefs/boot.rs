@@ -934,49 +934,38 @@ fn write_pe_to_esp(
         });
     }
 
-    let efi_linux_path = mounted_efi.as_ref().join(BOOTC_UKI_DIR);
-    create_dir_all(&efi_linux_path).context("Creating bootc UKI directory")?;
+    let bootc_efi_path = mounted_efi.as_ref().join(BOOTC_UKI_DIR);
 
-    let final_pe_path = match file_path.parent() {
-        Some(parent) => {
-            let renamed_path = match parent.as_str().ends_with(EFI_ADDON_DIR_EXT) {
-                true => {
-                    let dir_name = get_uki_addon_dir_name(&uki_id.to_hex());
+    let (pe_dir_path, pe_name) = match pe_type {
+        PEType::Uki => {
+            let name = get_uki_name(&uki_id.to_hex());
+            (bootc_efi_path, name)
+        }
+        v @ PEType::UkiAddon | v @ PEType::GlobalUkiAddon => {
+            let name = file_path
+                .components()
+                .last()
+                .ok_or_else(|| anyhow::anyhow!("Failed to get UKI Addon file name"))?;
 
-                    parent
-                        .parent()
-                        .map(|p| p.join(&dir_name))
-                        .unwrap_or(dir_name.into())
-                }
-
-                false => parent.to_path_buf(),
+            let dirname = if matches!(v, PEType::UkiAddon) {
+                bootc_efi_path.join(get_uki_addon_dir_name(&uki_id.to_hex()))
+            } else {
+                mounted_efi.as_ref().join(GLOBAL_UKI_ADDON_PATH)
             };
 
-            let full_path = efi_linux_path.join(renamed_path);
-            create_dir_all(&full_path)?;
-
-            full_path
+            (dirname, name.to_string())
         }
-
-        None => efi_linux_path,
     };
 
-    let pe_dir = Dir::open_ambient_dir(&final_pe_path, ambient_authority())
-        .with_context(|| format!("Opening {final_pe_path:?}"))?;
+    create_dir_all(&pe_dir_path)
+        .with_context(|| format!("Creating directory {}", pe_dir_path.display()))?;
 
-    let pe_name = match pe_type {
-        PEType::Uki => &get_uki_name(&uki_id.to_hex()),
-        PEType::UkiAddon => file_path
-            .components()
-            .last()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get UKI Addon file name"))?
-            .as_str(),
-    };
+    let pe_dir = Dir::open_ambient_dir(pe_dir_path, ambient_authority())?;
 
     uki_reader.seek(SeekFrom::Start(0))?;
     pe_dir
-        .atomic_replace_with(pe_name, |writer| std::io::copy(&mut uki_reader, writer))
-        .context("Writing UKI")?;
+        .atomic_replace_with(&pe_name, |writer| std::io::copy(&mut uki_reader, writer))
+        .with_context(|| format!("Writing PE {pe_name}"))?;
 
     rustix::fs::fsync(
         pe_dir
