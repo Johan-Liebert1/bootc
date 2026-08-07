@@ -54,3 +54,7 @@ pub(crate) const UKI_NAME_PREFIX: &str = TYPE1_BOOT_DIR_PREFIX;
 /// that keep the manifest, config, and layer splitstreams alive. This is
 /// analogous to how ostree uses `ostree/` refs.
 pub(crate) const BOOTC_TAG_PREFIX: &str = "localhost/bootc-";
+
+/// Path to where global UKI addons are stored
+/// Relative to the ESP
+pub(crate) const GLOBAL_UKI_ADDON_PATH: &str = "loader/addons";

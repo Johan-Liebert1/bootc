@@ -97,8 +97,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::bootc_composefs::state::{get_booted_bls, write_composefs_state};
 use crate::bootc_composefs::status::ComposefsCmdline;
+use crate::bootc_composefs::uki_addon::list_installed_uki_addons;
 use crate::bootc_kargs::compute_new_kargs;
-use crate::composefs_consts::{TYPE1_BOOT_DIR_PREFIX, TYPE1_ENT_PATH, TYPE1_ENT_PATH_STAGED};
+use crate::composefs_consts::{
+    GLOBAL_UKI_ADDON_PATH, TYPE1_BOOT_DIR_PREFIX, TYPE1_ENT_PATH, TYPE1_ENT_PATH_STAGED,
+};
 use crate::parsers::bls_config::{BLSConfig, BLSConfigType, EFIKey};
 use crate::spec::BootloaderKind;
 use crate::task::Task;
@@ -1141,6 +1144,8 @@ pub(crate) fn setup_composefs_uki_boot(
     id: &Sha512HashValue,
     entries: Vec<ComposefsBootEntry<Sha512HashValue>>,
 ) -> Result<String> {
+    let addons_to_update;
+
     let (root_path, esp_device, bootloader, missing_fsverity_allowed, uki_addons) = match setup_type
     {
         BootSetupType::Setup((root_setup, state, postfetch)) => {
@@ -1154,7 +1159,7 @@ pub(crate) fn setup_composefs_uki_boot(
                 esp_part.path(),
                 postfetch.detected_bootloader.clone(),
                 state.composefs_options.allow_missing_verity,
-                state.composefs_options.uki_addon.as_ref(),
+                state.composefs_options.uki_addons.uki_addon.as_ref(),
             )
         }
 
@@ -1166,12 +1171,24 @@ pub(crate) fn setup_composefs_uki_boot(
             let root_dev = bootc_blockdev::list_dev_by_dir(&storage.physical_root)?;
             let esp_dev = root_dev.find_first_colocated_esp()?;
 
+            let installed_addons = list_installed_uki_addons(storage, booted_cfs)?;
+
+            // If we find addons (that are currently installed) in the new image as well,
+            // we will update them
+            //
+            // TODO: This has a weird edge case where a local addon and global addon can have
+            // the same name. We can add a container lint for this
+            addons_to_update = installed_addons
+                .into_iter()
+                .map(|a| a.name)
+                .collect::<Vec<_>>();
+
             (
                 sysroot,
                 esp_dev.path(),
                 bootloader,
                 booted_cfs.cmdline.allow_missing_fsverity,
-                None,
+                Some(&addons_to_update),
             )
         }
     };
