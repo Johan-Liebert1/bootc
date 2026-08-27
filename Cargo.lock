@@ -123,9 +123,9 @@ dependencies = [
 
 [[package]]
 name = "async-compression"
-version = "0.4.42"
+version = "0.4.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e79b3f8a79cccc2898f31920fc69f304859b3bd567490f75ebf51ae1c792a9ac"
+checksum = "3976abdc8fe7d1133d43d304afd42abdf5bc3e1319d263d223bde07b5efc4be8"
 dependencies = [
  "compression-codecs",
  "compression-core",
@@ -374,7 +374,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "clap_mangen",
- "comfy-table",
+ "comfy-table 7.2.2",
  "composefs-ctl",
  "etc-merge",
  "fn-error-context",
@@ -796,6 +796,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "comfy-table"
+version = "8.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "136c8c4c3823846e8ba6d4bda011b4e5d5827b8bb0ac26c31f9ab31abe9f54f2"
+dependencies = [
+ "unicode-segmentation",
+ "unicode-width",
+]
+
+[[package]]
 name = "comma"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -803,8 +813,8 @@ checksum = "55b672471b4e9f9e95499ea597ff64941a309b2cdbffcc46f2cc5e2d971fd335"
 
 [[package]]
 name = "composefs"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "anyhow",
  "composefs-ioctls",
@@ -830,8 +840,8 @@ dependencies = [
 
 [[package]]
 name = "composefs-boot"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "anyhow",
  "composefs",
@@ -846,14 +856,14 @@ dependencies = [
 
 [[package]]
 name = "composefs-ctl"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "anyhow",
  "cap-std-ext",
  "clap",
  "clap_complete",
- "comfy-table",
+ "comfy-table 8.0.0",
  "composefs",
  "composefs-boot",
  "composefs-fuse",
@@ -875,8 +885,8 @@ dependencies = [
 
 [[package]]
 name = "composefs-fuse"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "anyhow",
  "composefs",
@@ -890,8 +900,8 @@ dependencies = [
 
 [[package]]
 name = "composefs-ioctls"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "rustix",
  "thiserror 2.0.19",
@@ -899,8 +909,8 @@ dependencies = [
 
 [[package]]
 name = "composefs-oci"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "anyhow",
  "async-compression",
@@ -932,8 +942,8 @@ dependencies = [
 
 [[package]]
 name = "composefs-splitdirfdstream"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "openssl",
  "rand 0.10.2",
@@ -945,8 +955,8 @@ dependencies = [
 
 [[package]]
 name = "composefs-storage"
-version = "0.9.0"
-source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.0#90f30e8abbcb5af60421b6b749cbf189b2a8895e"
+version = "0.9.2"
+source = "git+https://github.com/composefs/composefs-rs?tag=v0.9.2#f720d6c79ac6b082fb1e182eed3b291f88e2a7f4"
 dependencies = [
  "anyhow",
  "base64 0.23.0",
@@ -2537,7 +2547,7 @@ dependencies = [
  "chrono",
  "clap",
  "clap_mangen",
- "comfy-table",
+ "comfy-table 7.2.2",
  "composefs-ctl",
  "containers-image-proxy",
  "flate2",
