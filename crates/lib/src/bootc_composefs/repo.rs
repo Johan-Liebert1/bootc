@@ -407,7 +407,7 @@ pub(crate) async fn pull_composefs_repo(
     let fs = create_composefs_filesystem(
         &*repo,
         &pull_result.config_digest,
-        None,
+        Some(&pull_result.config_verity),
         &Default::default(),
     )
     .context("Creating composefs filesystem for boot entry discovery")?;

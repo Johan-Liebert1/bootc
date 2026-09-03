@@ -1615,7 +1615,7 @@ pub(crate) async fn setup_composefs_boot(
     let fs = composefs_oci::image::create_filesystem(
         &*repo,
         &pull_result.config_digest,
-        None,
+        Some(&pull_result.config_verity),
         &Default::default(),
     )
     .context("Creating composefs filesystem for boot entry discovery")?;
