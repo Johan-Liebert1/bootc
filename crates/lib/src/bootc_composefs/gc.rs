@@ -494,8 +494,13 @@ pub(crate) async fn composefs_gc(
     // These won't be GC'd by the above `repo.gc` as the EROFS have
     // `/boot` masked
     for verity in all_orphans {
-        let verity_to_sha = Sha512HashValue::from_hex(verity)
-            .with_context(|| anyhow::anyhow!("Bad fsverity {verity}"))?;
+        let verity_to_sha = Sha512HashValue::from_hex(verity);
+
+        let Ok(verity_to_sha) = verity_to_sha else {
+            // We do not want to block on GC if we find corrupted state
+            tracing::warn!("Bad FSVerity '{verity}' when performing GC on orphan, skipping");
+            continue;
+        };
 
         let linked_images = linked_erofs_images(&booted_cfs.repo, &verity_to_sha)
             .with_context(|| anyhow::anyhow!("Getting linked images for {verity}"))?;
