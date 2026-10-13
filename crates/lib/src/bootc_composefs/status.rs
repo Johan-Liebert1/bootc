@@ -158,6 +158,12 @@ pub(crate) struct StagedDeployment {
     /// Whether to finalize this staged deployment on reboot or not
     /// This also maps to `download_only` field in `BootEntry`
     pub(crate) finalization_locked: bool,
+    /// This is the image that's pulled into the composefs repository
+    /// Might or might not be the same as the imgref in the ".origin" file
+    /// because of the `--target-imgref` flag in `bootc switch`
+    ///
+    /// Is only `Some` if target-imgref is different than the image pulled
+    pub(crate) original_imgref: Option<String>,
 }
 
 #[derive(Debug, PartialEq)]
